@@ -1,0 +1,42 @@
+---
+- name: Patch Red Hat servers and update Apache if installed
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update all packages to the latest version
+      yum:
+        name: '*'
+        state: latest
+
+    - name: Check if Apache is installed
+      command: rpm -q httpd
+      register: apache_installed
+      ignore_errors: yes
+
+    - name: Update Apache if installed
+      yum:
+        name: httpd
+        state: latest
+      when: apache_installed.rc == 0
+
+    - name: Check if a reboot is required
+      command: needs-restarting -r
+      register: reboot_required
+      failed_when: reboot_required.rc not in [0, 1]
+
+    - name: Reboot the server if needed
+      reboot:
+      when: reboot_required.rc == 1
+
+    - name: Wait for the server to come back online
+      wait_for_connection:
+        timeout: 300
+      when: reboot_required.rc == 1
+
+    - name: Ensure the server is running by checking the hostname
+      command: hostname
+      register: hostname_result
+
+    - name: Display the hostname
+      debug:
+        msg: "The hostname of the server is {{ hostname_result.stdout }}"
