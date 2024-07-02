@@ -17,8 +17,4 @@
       
 
    
-      register: hostname_result
-
-    - name: Display the hostname
-      debug:
-        msg: "The hostname of the server is {{ hostname_result.stdout }}"
+   
