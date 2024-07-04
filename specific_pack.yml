@@ -9,5 +9,5 @@
       state: latest
       update_only: yes
       update_cache: yes
-  - ansible.buildin.debug:
+  - ansible.builtin.debug:
       msg: "on {{inventory_hostname}} machine, following packages have been installed/updated {{package_name}}"
