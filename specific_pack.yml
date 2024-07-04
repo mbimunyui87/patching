@@ -1,0 +1,13 @@
+---
+- hosts: all
+  name: update any package
+  gather_facts: no
+  tasks:
+  - name: update required packages
+    ansible.builtin.dnf:
+      name: "{{package_name}}"
+      state: latest
+      update_only: yes
+      update_cache: yes
+  - ansible.buildin.debug:
+      msg: "on {{inventory_hostname}} machine, following packages have been installed/updated {{package_name}}"
