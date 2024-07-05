@@ -69,10 +69,13 @@
       shell: "shutdown -r now"
       async: 1
       poll: 0
+      when: reboot_check.stdout == "reboot required"
+      
 
     - name: Wait for system to restart
       pause:
         minutes: 1
+      when: reboot_check.stdout == "reboot required"
 
     - name: Get new kernel version
       shell: uname -r
