@@ -1,0 +1,88 @@
+---
+- hosts: all
+  become: true
+  become_user: root
+  tasks:
+    - name: Verify if Apache is running
+      shell: |
+        if ps -eaf | egrep 'httpd' | grep -v grep > /dev/null; then
+          echo 'process is running'
+        else
+          echo 'process not running'
+        fi
+      ignore_errors: true
+      register: apache_proc_check
+
+    - name: Display Apache process check result
+      debug:
+        msg: "{{ apache_proc_check.stdout }}"
+
+    - name: Stop Apache if it is running
+      service:
+        name: httpd
+        state: stopped
+      when: apache_proc_check.stdout == "process is running"
+
+    - name: Get current kernel version before patching
+      shell: uname -r
+      register: prev_kernel_version
+
+    - name: Perform kernel patching
+      yum:
+        name: kernel
+        state: latest
+      register: yum_update
+
+    - name: Display kernel update result
+      debug:
+        msg: "Kernel has been updated"
+      when: yum_update.rc == 0
+
+    - name: Update Apache server
+      yum:
+        name: httpd
+        state: latest
+      register: apache_update
+
+    - name: Display Apache update result
+      debug:
+        msg: "Apache has been updated"
+      when: apache_update.rc == 0
+
+    - name: Check if reboot is required
+      shell: |
+        new_kernel=$(rpm -qa --last kernel | head -1 | awk '{print $1}' | sed 's/kernel-//g')
+        old_kernel=$(uname -r)
+        if [[ $new_kernel != $old_kernel ]]; then
+          echo "reboot required"
+        else
+          echo "reboot not required"
+        fi
+      ignore_errors: true
+      register: reboot_check
+
+    - name: Display reboot check result
+      debug:
+        msg: "{{ reboot_check.stdout }}"
+
+    - name: Reboot after patching
+      shell: "shutdown -r now"
+      async: 1
+      poll: 0
+
+    - name: Wait for system to restart
+      pause:
+        minutes: 1
+
+    - name: Get new kernel version
+      shell: uname -r
+      register: new_kernel_version
+
+    - name: Display new kernel version
+      debug:
+        msg: "New kernel version is {{ new_kernel_version.stdout }} while the old kernel version was {{ prev_kernel_version.stdout }}"
+
+    - name: Start Apache after patching
+      service:
+        name: httpd
+        state: started
