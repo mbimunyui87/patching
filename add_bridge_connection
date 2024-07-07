@@ -1,0 +1,73 @@
+---
+- name: Configure network settings to use bridge adapter
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Install network tools
+      dnf:
+        name:
+          - bridge-utils
+          - NetworkManager
+        state: present
+
+    - name: Ensure NetworkManager is enabled and running
+      systemd:
+        name: NetworkManager
+        state: started
+        enabled: yes
+
+    - name: Create a bridge connection
+      nmcli:
+        conn_name: br0
+        conn_type: bridge
+        ifname: br0
+        state: present
+
+    - name: Add interface to the bridge (assuming the interface is eth0)
+      nmcli:
+        conn_name: br0-port
+        conn_type: ethernet
+        ifname: eth0
+        master: br0
+        state: present
+
+    - name: Assign static IP to the bridge
+      nmcli:
+        conn_name: br0
+        ip4: 192.168.1.{{ inventory_hostname[-1] + 100 }}/24
+        gw4: 192.168.1.1
+        state: present
+
+    - name: Restart NetworkManager to apply changes
+      systemd:
+        name: NetworkManager
+        state: restarted
+
+    - name: Configure /etc/hosts to include the new IP addresses
+      lineinfile:
+        path: /etc/hosts
+        line: "192.168.1.{{ inventory_hostname[-1] + 100 }} {{ inventory_hostname }}"
+        state: present
+
+- name: Ensure SSH service is enabled and started
+  hosts: all
+  become: true
+  tasks:
+    - name: Enable and start SSH service
+      systemd:
+        name: sshd
+        state: started
+        enabled: yes
+
+- name: Reboot the VMs to apply the network changes
+  hosts: all
+  become: true
+  tasks:
+    - name: Reboot the system
+      reboot:
+        msg: "Rebooting to apply network changes"
+        connect_timeout: 5
+        reboot_timeout: 600
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
